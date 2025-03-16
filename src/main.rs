@@ -4,6 +4,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use errors::AppError;
 use redis::{AsyncCommands, Client};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -11,6 +12,8 @@ use tokio::{
     net::TcpListener,
     sync::{broadcast, Mutex},
 };
+
+mod errors;
 
 // Structure pour stocker l’état de l’application
 #[derive(Clone)]
@@ -27,12 +30,18 @@ struct StatusUpdate {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), AppError>  {
     // Connexion à Redis
-    let redis_client = Client::open("redis://127.0.0.1/").expect("Erreur de connexion à Redis");
+    let redis_client = match connect_to_redis() {
+        Ok(client) => client,
+        Err(err) => {
+            eprintln!("❌ Impossible de se connecter à Redis : {:?}", err);
+            return Err(err);
+        }
+    };
 
     // Canal pour envoyer des mises à jour en temps réel
-    let (tx, _rx) = broadcast::channel(100);
+    let (tx, _rx) = broadcast::channel(10);
 
     let state = AppState {
         redis_client: Arc::new(redis_client),
@@ -52,6 +61,13 @@ async fn main() {
     let listener = TcpListener::bind("0.0.0.0:3000").await.unwrap();
     println!("Serveur démarré sur http://127.0.0.1:3000");
     axum::serve(listener, app).await.unwrap();
+
+    Ok(())
+}
+
+fn connect_to_redis() -> Result<Client, AppError> {
+    let client = Client::open("redis://127.0.0.1/")?;
+    Ok(client)
 }
 
 // 🔵 Mise à jour du statut
@@ -98,3 +114,24 @@ async fn handle_ws(mut socket: WebSocket, state: AppState) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg(feature = "mock")]
+    fn mock_connect_to_redis() -> Result<Client, AppError> {
+        Err(AppError::RedisConnection(redis::RedisError::from((
+            redis::ErrorKind::IoError,
+            "Mock: Redis non disponible",
+        ))))
+    }
+
+    #[cfg(feature = "mock")]
+    #[tokio::test]
+    async fn test_mock_connect_to_redis_failure() {
+        let result = mock_connect_to_redis();
+        assert!(result.is_err(), "La connexion Redis aurait dû échouer dans le mock.");
+    }
+}
+
