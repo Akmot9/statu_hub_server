@@ -1,0 +1,16 @@
+version: "3.8"
+services:
+  redis:
+    image: redis
+    restart: always
+    ports:
+      - "6379:6379"
+
+  statu_hub:
+    build: .
+    depends_on:
+      - redis
+    environment:
+      - REDIS_URL=redis://redis:6379
+    ports:
+      - "3000:3000"
