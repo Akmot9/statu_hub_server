@@ -116,7 +116,7 @@ async fn handle_ws(mut socket: WebSocket, state: AppState) {
 }
 
 #[cfg(test)]
-mod tests {
+mod mock_tests {
     use super::*;
 
     #[cfg(feature = "mock")]
@@ -135,3 +135,13 @@ mod tests {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[tokio::test] // Test asynchrone
+    async fn test_connect_to_redis_success() {
+        let result = connect_to_redis();
+        assert!(result.is_ok(), "La connexion à Redis aurait dû réussir.");
+    }
+}
