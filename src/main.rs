@@ -135,6 +135,8 @@ async fn handle_ws(mut socket: WebSocket, state: AppState) {
 
 #[cfg(test)]
 mod mock_tests {
+    use crate::Client;
+    use crate::AppError;
 
     #[cfg(feature = "mock")]
     fn mock_connect_to_redis() -> Result<Client, AppError> {
