@@ -1,0 +1,46 @@
+name: Rust CI (Lint + Security + Build)
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '0 3 * * *' # Exécution automatique tous les jours à 3h du matin (UTC)
+
+jobs:
+  lint_and_security:
+    name: Lint & Security Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🦀 Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: 📦 Install tools (clippy, audit, deny)
+        run: |
+          rustup component add clippy rustfmt
+          cargo install cargo-audit
+          cargo install cargo-deny
+
+      - name: 🛠 Check formatting (cargo fmt)
+        run: cargo fmt --check
+
+      - name: 🔍 Static analysis (cargo clippy)
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: 🏗 Dependency tree analysis (cargo tree)
+        run: cargo tree
+
+      - name: 🔎 Security audit (cargo audit)
+        run: cargo audit
+
+      - name: 🔒 Dependency policy check (cargo deny)
+        run: cargo deny check
+
+      - name: ✅ Build verification (cargo check)
+        run: cargo check --all-targets
+
+      - name: 🚀 Compile in release mode
+        run: cargo build --release

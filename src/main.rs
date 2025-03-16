@@ -1,8 +1,11 @@
 use axum::{
-    extract::{ws::{Message, WebSocket, WebSocketUpgrade}, Path, State},
+    Json, Router,
+    extract::{
+        Path, State,
+        ws::{Message, WebSocket, WebSocketUpgrade},
+    },
     response::IntoResponse,
     routing::{get, post},
-    Json, Router,
 };
 use errors::AppError;
 use redis::{AsyncCommands, Client};
@@ -10,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::{
     net::TcpListener,
-    sync::{broadcast, Mutex},
+    sync::{Mutex, broadcast},
 };
 
 mod errors;
@@ -30,7 +33,7 @@ struct StatusUpdate {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), AppError>  {
+async fn main() -> Result<(), AppError> {
     // Connexion à Redis
     let redis_client = match connect_to_redis() {
         Ok(client) => client,
@@ -52,9 +55,12 @@ async fn main() -> Result<(), AppError>  {
     let app = Router::new()
         .route("/status", post(update_status))
         .route("/status/{user_id}", get(get_status))
-        .route("/ws", get(|ws: WebSocketUpgrade, state: State<AppState>| async move {
-            websocket_handler(ws, state).await
-        }))
+        .route(
+            "/ws",
+            get(|ws: WebSocketUpgrade, state: State<AppState>| async move {
+                websocket_handler(ws, state).await
+            }),
+        )
         .with_state(state);
 
     // Démarrage du serveur
@@ -75,10 +81,15 @@ async fn update_status(
     State(state): State<AppState>,
     Json(payload): Json<StatusUpdate>,
 ) -> impl IntoResponse {
-    let mut con = state.redis_client.get_multiplexed_async_connection().await.unwrap();
-    
+    let mut con = state
+        .redis_client
+        .get_multiplexed_async_connection()
+        .await
+        .unwrap();
+
     // Stockage en Redis (avec expiration de 24h)
-    let _: () = con.set_ex(payload.user_id.clone(), payload.status.clone(), 86400)
+    let _: () = con
+        .set_ex(payload.user_id.clone(), payload.status.clone(), 86400)
         .await
         .unwrap();
 
@@ -95,13 +106,20 @@ async fn get_status(
     Path(user_id): Path<String>,
     State(state): State<AppState>,
 ) -> impl IntoResponse {
-    let mut con = state.redis_client.get_multiplexed_async_connection().await.unwrap();
+    let mut con = state
+        .redis_client
+        .get_multiplexed_async_connection()
+        .await
+        .unwrap();
     let status: Option<String> = con.get(&user_id).await.unwrap();
     Json(status.unwrap_or("déconnecté".to_string()))
 }
 
 // 🔥 WebSocket pour les mises à jour en temps réel
-async fn websocket_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> impl IntoResponse {
+async fn websocket_handler(
+    ws: WebSocketUpgrade,
+    State(state): State<AppState>,
+) -> impl IntoResponse {
     ws.on_upgrade(|socket| handle_ws(socket, state))
 }
 
@@ -117,7 +135,6 @@ async fn handle_ws(mut socket: WebSocket, state: AppState) {
 
 #[cfg(test)]
 mod mock_tests {
-    use super::*;
 
     #[cfg(feature = "mock")]
     fn mock_connect_to_redis() -> Result<Client, AppError> {
@@ -131,14 +148,17 @@ mod mock_tests {
     #[tokio::test]
     async fn test_mock_connect_to_redis_failure() {
         let result = mock_connect_to_redis();
-        assert!(result.is_err(), "La connexion Redis aurait dû échouer dans le mock.");
+        assert!(
+            result.is_err(),
+            "La connexion Redis aurait dû échouer dans le mock."
+        );
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[tokio::test] // Test asynchrone
     async fn test_connect_to_redis_success() {
         let result = connect_to_redis();
