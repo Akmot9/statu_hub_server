@@ -2,6 +2,7 @@
 name = "statu_hub_server"
 version = "0.1.0"
 edition = "2024"
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 axum = { version = "0.8", features = ["ws"] }
@@ -13,8 +14,13 @@ tower-http = { version = "0.6.2", features = ["cors"] }
 
 thiserror = "2.0.12"
 
+
 [dev-dependencies]
 tokio = { version = "1", features = ["rt", "macros"] }
 
 [features]
 mock = []
+
+
+
+
