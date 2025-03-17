@@ -11,6 +11,8 @@ services:
     depends_on:
       - redis
     environment:
-      - REDIS_URL=redis://redis:6379
+      - REDIS_URL=${REDIS_URL}
+      - BROADCAST_BUFFER_SIZE=${BROADCAST_BUFFER_SIZE}
+      - SERVER_PORT=${SERVER_PORT}
     ports:
       - "3000:3000"
