@@ -1,0 +1,46 @@
+name: 🐳 Test Docker Compose Build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test-docker-compose:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 🔹 Vérifie le repo
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      # 🔹 Installe Docker Compose
+      - name: 🛠 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 🔹 Vérifie que Docker est bien installé
+      - name: 🔍 Check Docker version
+        run: |
+          docker version
+          docker-compose version
+
+      # 🔹 Build des conteneurs Docker
+      - name: 🏗 Build Docker Compose
+        run: docker-compose up --build -d
+
+      # 🔹 Vérifie que les services tournent bien
+      - name: 🏗 Check running containers
+        run: docker ps
+
+      # 🔹 Test si le serveur répond bien sur le bon port
+      - name: 🧪 Check if service is running
+        run: |
+          sleep 5  # Attends un peu que le serveur démarre
+          curl -f http://localhost:3000/status || exit 1
+
+      # 🔹 Nettoyage : Arrêter et supprimer les conteneurs après le test
+      - name: 🗑 Clean up
+        run: docker-compose down

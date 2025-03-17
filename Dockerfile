@@ -1,5 +1,5 @@
 # Étape 1 : Construire l'application Rust
-FROM rust:1.75 AS builder
+FROM rust:1.85 AS builder
 
 # Définir le dossier de travail
 WORKDIR /app
@@ -11,7 +11,7 @@ COPY . .
 RUN cargo build --release
 
 # Étape 2 : Image finale avec seulement le binaire (léger)
-FROM debian:bullseye-slim
+FROM debian:bookworm-slim
 
 # Installer les dépendances nécessaires pour exécuter l'application
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
