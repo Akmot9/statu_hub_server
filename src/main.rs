@@ -13,6 +13,8 @@ use tokio::{
     net::TcpListener,
     sync::{Mutex, broadcast},
 };
+use tracing::{info, error, warn};
+use tracing_subscriber;
 
 mod errors;
 mod route;
@@ -33,27 +35,50 @@ struct StatusUpdate {
 
 #[tokio::main]
 async fn main() -> Result<(), AppError> {
+    // Initialisation du logger
+    tracing_subscriber::fmt::init();
+
     // Charger le fichier .env s'il existe
     dotenv().ok();
+    info!("📦 Variables d'environnement chargées.");
 
     // Récupération des variables d'environnement avec gestion des erreurs
-    let redis_url = env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1/".to_string());
+    let redis_url = env::var("REDIS_URL").unwrap_or_else(|_| {
+        warn!("⚠️ REDIS_URL non défini, utilisation de la valeur par défaut.");
+        "redis://127.0.0.1/".to_string()
+    });
+
     let broadcast_buffer_size: usize = env::var("BROADCAST_BUFFER_SIZE")
         .unwrap_or_else(|_| "10".to_string())
         .parse()
         .map_err(|_| {
+            error!("❌ BROADCAST_BUFFER_SIZE doit être un nombre.");
             AppError::InvalidConfig("BROADCAST_BUFFER_SIZE doit être un nombre".to_string())
         })?;
+
     let server_port: u16 = env::var("SERVER_PORT")
         .unwrap_or_else(|_| "3000".to_string())
         .parse()
-        .map_err(|_| AppError::InvalidConfig("SERVER_PORT doit être un nombre".to_string()))?;
+        .map_err(|_| {
+            error!("❌ SERVER_PORT doit être un nombre.");
+            AppError::InvalidConfig("SERVER_PORT doit être un nombre".to_string())
+        })?;
 
     // Connexion à Redis
-    let redis_client = connect_to_redis(&redis_url)?;
+    let redis_client = match connect_to_redis(&redis_url) {
+        Ok(client) => {
+            info!("✅ Connexion à Redis réussie.");
+            client
+        },
+        Err(err) => {
+            error!("❌ Impossible de se connecter à Redis : {:?}", err);
+            return Err(err);
+        }
+    };
 
     // Canal pour envoyer des mises à jour en temps réel
     let (tx, _rx) = broadcast::channel(broadcast_buffer_size);
+    info!("📡 Canal de broadcast configuré avec {} messages max.", broadcast_buffer_size);
 
     let state = AppState {
         redis_client: Arc::new(redis_client),
@@ -73,15 +98,21 @@ async fn main() -> Result<(), AppError> {
         .with_state(state);
 
     // Démarrage du serveur
-    let listener = TcpListener::bind(format!("0.0.0.0:{}", server_port)).await?;
-    println!("🚀 Serveur démarré sur http://127.0.0.1:{}", server_port);
+    let addr = format!("0.0.0.0:{}", server_port);
+    let listener = TcpListener::bind(&addr).await?;
+    info!("🚀 Serveur démarré sur http://{}", addr);
+
     axum::serve(listener, app).await?;
 
     Ok(())
 }
 
 fn connect_to_redis(redis_url: &str) -> Result<Client, AppError> {
-    Client::open(redis_url).map_err(AppError::RedisConnection)
+    info!("🔗 Tentative de connexion à Redis : {}", redis_url);
+    Client::open(redis_url).map_err(|e| {
+        error!("❌ Erreur de connexion à Redis : {:?}", e);
+        AppError::RedisConnection(e)
+    })
 }
 
 #[cfg(test)]

@@ -7,6 +7,7 @@ use axum::{
     response::IntoResponse,
 };
 use redis::AsyncCommands;
+use tracing::{info, error, warn};
 
 use crate::{AppState, StatusUpdate};
 
@@ -15,6 +16,8 @@ pub async fn update_status(
     State(state): State<AppState>,
     Json(payload): Json<StatusUpdate>,
 ) -> impl IntoResponse {
+    info!("🔵 Mise à jour du statut pour l'utilisateur: {}", payload.user_id);
+
     let mut con = state
         .redis_client
         .get_multiplexed_async_connection()
@@ -40,6 +43,8 @@ pub async fn get_status(
     Path(user_id): Path<String>,
     State(state): State<AppState>,
 ) -> impl IntoResponse {
+    info!("🟢 Récupération du statut de l'utilisateur: {}", user_id);
+
     let mut con = state
         .redis_client
         .get_multiplexed_async_connection()
@@ -58,11 +63,16 @@ pub async fn websocket_handler(
 }
 
 pub async fn handle_ws(mut socket: WebSocket, state: AppState) {
+    info!("📡 Nouvelle connexion WebSocket établie.");
+
     let mut rx = state.broadcaster.lock().await.subscribe();
 
     while let Ok(message) = rx.recv().await {
         if socket.send(Message::Text(message.into())).await.is_err() {
+            error!("❌ Erreur lors de l'envoi du message WebSocket.");
             break;
         }
     }
+    warn!("⚠️ Connexion WebSocket fermée.");
+
 }

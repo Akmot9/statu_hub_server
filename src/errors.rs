@@ -12,4 +12,7 @@ pub enum AppError {
 
     #[error("Erreur d'entrée/sortie : {0}")]
     Io(#[from] io::Error),
+
+    #[error("Erreur de sérialisation JSON")]
+    JsonSerialization,
 }
