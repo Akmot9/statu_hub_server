@@ -8,8 +8,7 @@ use axum::{
 };
 use redis::AsyncCommands;
 
-use crate::{errors, AppState, StatusUpdate};
-
+use crate::{AppState, StatusUpdate};
 
 // 🔵 Mise à jour du statut
 pub async fn update_status(

@@ -41,7 +41,9 @@ async fn main() -> Result<(), AppError> {
     let broadcast_buffer_size: usize = env::var("BROADCAST_BUFFER_SIZE")
         .unwrap_or_else(|_| "10".to_string())
         .parse()
-        .map_err(|_| AppError::InvalidConfig("BROADCAST_BUFFER_SIZE doit être un nombre".to_string()))?;
+        .map_err(|_| {
+            AppError::InvalidConfig("BROADCAST_BUFFER_SIZE doit être un nombre".to_string())
+        })?;
     let server_port: u16 = env::var("SERVER_PORT")
         .unwrap_or_else(|_| "3000".to_string())
         .parse()
@@ -80,4 +82,40 @@ async fn main() -> Result<(), AppError> {
 
 fn connect_to_redis(redis_url: &str) -> Result<Client, AppError> {
     Client::open(redis_url).map_err(AppError::RedisConnection)
+}
+
+#[cfg(test)]
+mod mock_tests {
+    use crate::AppError;
+    use crate::Client;
+
+    #[cfg(feature = "mock")]
+    fn mock_connect_to_redis() -> Result<redis::Client, crate::errors::AppError> {
+        Err(crate::errors::AppError::RedisConnection(redis::RedisError::from((
+            redis::ErrorKind::IoError,
+            "Mock: Redis non disponible",
+        ))))
+    }
+
+    #[cfg(feature = "mock")]
+    #[tokio::test]
+    async fn test_mock_connect_to_redis_failure() {
+        let result = mock_connect_to_redis();
+        assert!(
+            result.is_err(),
+            "La connexion Redis aurait dû échouer dans le mock."
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test] // Test asynchrone
+    async fn test_connect_to_redis_success() {
+        let redis_url = "redis://127.0.0.1/";
+        let result = connect_to_redis(redis_url);
+        assert!(result.is_ok(), "La connexion à Redis aurait dû réussir.");
+    }
 }

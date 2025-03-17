@@ -1,6 +1,6 @@
 use redis::RedisError;
-use thiserror::Error;
 use std::io;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum AppError {
@@ -13,4 +13,3 @@ pub enum AppError {
     #[error("Erreur d'entrée/sortie : {0}")]
     Io(#[from] io::Error),
 }
-
